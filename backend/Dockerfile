@@ -2,12 +2,12 @@ FROM golang:1.23-alpine AS builder
 
 WORKDIR /app
 
-COPY go.mod ./
-RUN if [ -f go.sum ]; then cp go.sum ./; fi
+COPY go.mod go.sum ./
 RUN go mod download
-RUN go mod tidy
 
 COPY . .
+
+RUN go mod tidy
 
 RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-w -s" -o main ./cmd/main.go
 

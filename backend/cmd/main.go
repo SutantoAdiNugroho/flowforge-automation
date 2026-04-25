@@ -28,7 +28,8 @@ func main() {
 			log.Fatalf("failed to run migrations: %v", err)
 		}
 	}
-	app := routes.Setup(container.HealthController)
+
+	app := routes.Setup(container.HealthController, container.AuthController, container.JWTManager)
 	log.Printf("flowforge backend running on port %s", cfg.Port)
 	if err := app.Listen(":" + cfg.Port); err != nil {
 		log.Fatalf("failed to run backend: %v", err)
