@@ -1,0 +1,7 @@
+CREATE TABLE IF NOT EXISTS app_metadata (
+    id SERIAL PRIMARY KEY,
+    app_key VARCHAR(100) UNIQUE NOT NULL,
+    app_value TEXT,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
