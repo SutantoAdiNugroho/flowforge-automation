@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"flowforge-automation-backend/internal/auth"
@@ -11,6 +12,7 @@ import (
 	"flowforge-automation-backend/pkg/model/domain/enum"
 	"flowforge-automation-backend/pkg/model/dto"
 	authrepository "flowforge-automation-backend/pkg/repository/auth"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/google/uuid"
 	"golang.org/x/crypto/bcrypt"
 )
@@ -30,27 +32,45 @@ func NewAuthService(repo authrepository.Repository, jwtSecretKey string, tokenTT
 }
 
 func (s *service) Login(ctx context.Context, req *dto.LoginRequest) (*dto.LoginResponse, error) {
-	if req.Email == "" || req.Password == "" {
-		return nil, errors.New("email and password are required")
+	if req == nil {
+		return nil, ErrInvalidLoginRequest
+	}
+
+	tenantSlug := normalizeSlug(req.TenantSlug)
+	if tenantSlug == "" || strings.TrimSpace(req.Email) == "" || strings.TrimSpace(req.Password) == "" {
+		return nil, ErrInvalidLoginRequest
+	}
+
+	if !isValidEmail(req.Email) {
+		return nil, ErrInvalidLoginRequest
+	}
+
+	tenant, err := s.repo.GetTenantBySlug(ctx, tenantSlug)
+	if err != nil {
+		return nil, fmt.Errorf("failed to find tenant: %w", err)
+	}
+
+	if tenant == nil {
+		return nil, ErrInvalidCredentials
 	}
 
 	// find user by email
-	user, err := s.repo.GetUserByEmail(ctx, req.Email)
+	user, err := s.repo.GetUserByEmailAndTenant(ctx, strings.TrimSpace(req.Email), tenant.ID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to find user: %w", err)
 	}
 
 	if user == nil {
-		return nil, errors.New("invalid email or password")
+		return nil, ErrInvalidCredentials
 	}
 
 	// check if user is active
 	if !user.IsActive {
-		return nil, errors.New("user account is inactive")
+		return nil, ErrInactiveUser
 	}
 
 	if err := bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(req.Password)); err != nil {
-		return nil, errors.New("invalid email or password")
+		return nil, ErrInvalidCredentials
 	}
 
 	expiresAt := time.Now().Add(s.tokenTTL)
@@ -69,24 +89,25 @@ func (s *service) Login(ctx context.Context, req *dto.LoginRequest) (*dto.LoginR
 }
 
 func (s *service) Register(ctx context.Context, req *dto.RegisterRequest) (*dto.RegisterResponse, error) {
-	if req.Email == "" || req.Password == "" || req.TenantName == "" || req.TenantSlug == "" {
-		return nil, errors.New("all fields are required")
+	if req == nil {
+		return nil, ErrInvalidRegisterRequest
 	}
 
-	existingTenant, err := s.repo.GetTenantBySlug(ctx, req.TenantSlug)
+	tenantSlug := normalizeSlug(req.TenantSlug)
+	if strings.TrimSpace(req.Email) == "" || strings.TrimSpace(req.Password) == "" || strings.TrimSpace(req.TenantName) == "" || tenantSlug == "" {
+		return nil, ErrInvalidRegisterRequest
+	}
+
+	if !isValidEmail(req.Email) || len(req.Password) < 6 || !isValidTenantSlug(tenantSlug) {
+		return nil, ErrInvalidRegisterRequest
+	}
+
+	existingTenant, err := s.repo.GetTenantBySlug(ctx, tenantSlug)
 	if err != nil {
 		return nil, fmt.Errorf("failed to check tenant: %w", err)
 	}
 	if existingTenant != nil {
-		return nil, errors.New("tenant slug already exists")
-	}
-
-	existingUser, err := s.repo.GetUserByEmail(ctx, req.Email)
-	if err != nil {
-		return nil, fmt.Errorf("failed to check email: %w", err)
-	}
-	if existingUser != nil {
-		return nil, errors.New("email already registered")
+		return nil, ErrTenantSlugExists
 	}
 
 	tenantID := uuid.New()
@@ -95,10 +116,13 @@ func (s *service) Register(ctx context.Context, req *dto.RegisterRequest) (*dto.
 			ID: tenantID,
 		},
 		Name: req.TenantName,
-		Slug: req.TenantSlug,
+		Slug: tenantSlug,
 	}
 
 	if err := s.repo.CreateTenant(ctx, tenant); err != nil {
+		if isUniqueViolation(err) {
+			return nil, ErrTenantSlugExists
+		}
 		return nil, fmt.Errorf("failed to create tenant: %w", err)
 	}
 
@@ -120,6 +144,9 @@ func (s *service) Register(ctx context.Context, req *dto.RegisterRequest) (*dto.
 	}
 
 	if err := s.repo.CreateUser(ctx, user); err != nil {
+		if isUniqueViolation(err) {
+			return nil, ErrEmailAlreadyRegistered
+		}
 		return nil, fmt.Errorf("failed to create user: %w", err)
 	}
 
@@ -137,4 +164,17 @@ func (s *service) Register(ctx context.Context, req *dto.RegisterRequest) (*dto.
 		Email:     user.Email,
 		Role:      user.Role,
 	}, nil
+}
+
+func isUniqueViolation(err error) bool {
+	if err == nil {
+		return false
+	}
+
+	var pgErr *pgconn.PgError
+	if errors.As(err, &pgErr) {
+		return pgErr.Code == "23505"
+	}
+
+	return strings.Contains(strings.ToLower(err.Error()), "duplicate")
 }

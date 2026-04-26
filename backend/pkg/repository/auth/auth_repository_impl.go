@@ -17,9 +17,9 @@ func NewAuthRepository(db *gorm.DB) Repository {
 	return &repository{db: db}
 }
 
-func (r *repository) GetUserByEmail(ctx context.Context, email string) (*domain.User, error) {
+func (r *repository) GetUserByEmailAndTenant(ctx context.Context, email string, tenantID uuid.UUID) (*domain.User, error) {
 	var user domain.User
-	if err := r.db.WithContext(ctx).Where("email = ?", email).First(&user).Error; err != nil {
+	if err := r.db.WithContext(ctx).Where("email = ? AND tenant_id = ?", email, tenantID).First(&user).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, nil
 		}

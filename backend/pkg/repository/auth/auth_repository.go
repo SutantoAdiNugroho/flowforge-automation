@@ -9,7 +9,7 @@ import (
 
 // Repository defines auth repository interface
 type Repository interface {
-	GetUserByEmail(ctx context.Context, email string) (*domain.User, error)
+	GetUserByEmailAndTenant(ctx context.Context, email string, tenantID uuid.UUID) (*domain.User, error)
 	GetUserByIDAndTenant(ctx context.Context, userID, tenantID uuid.UUID) (*domain.User, error)
 	CreateTenant(ctx context.Context, tenant *domain.Tenant) error
 	CreateUser(ctx context.Context, user *domain.User) error

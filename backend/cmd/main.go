@@ -29,7 +29,14 @@ func main() {
 		}
 	}
 
-	app := routes.Setup(container.HealthController, container.AuthController, container.JWTManager)
+	ctrl := routes.Controllers{
+		Health:   container.HealthController,
+		Auth:     container.AuthController,
+		Workflow: container.WorkflowController,
+		Run:      container.RunController,
+	}
+
+	app := routes.Setup(ctrl, container.JWTManager, container.WSHub)
 	log.Printf("flowforge backend running on port %s", cfg.Port)
 	if err := app.Listen(":" + cfg.Port); err != nil {
 		log.Fatalf("failed to run backend: %v", err)

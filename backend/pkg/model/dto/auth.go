@@ -4,6 +4,7 @@ import "github.com/google/uuid"
 
 // LoginRequest represents login request payload
 type LoginRequest struct {
+	TenantSlug string `json:"tenant_slug" binding:"required,min=3"`
 	Email    string `json:"email" binding:"required,email"`
 	Password string `json:"password" binding:"required,min=6"`
 }

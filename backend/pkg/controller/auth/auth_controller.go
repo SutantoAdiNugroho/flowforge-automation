@@ -1,6 +1,7 @@
 package auth
 
 import (
+	"errors"
 	"net/http"
 
 	"flowforge-automation-backend/pkg/model/domain/enum"
@@ -41,9 +42,23 @@ func (c *Controller) Login(ctx *fiber.Ctx) error {
 
 	resp, err := c.authService.Login(ctx.Context(), req)
 	if err != nil {
+		if errors.Is(err, authservice.ErrInvalidLoginRequest) {
+			return ctx.Status(http.StatusBadRequest).JSON(dto.ErrorResponse{
+				Error:   string(enum.AuthErrorInvalidRequest),
+				Message: "Invalid login payload",
+			})
+		}
+
+		if errors.Is(err, authservice.ErrInvalidCredentials) || errors.Is(err, authservice.ErrInactiveUser) {
+			return ctx.Status(http.StatusUnauthorized).JSON(dto.ErrorResponse{
+				Error:   string(enum.AuthErrorLoginFailed),
+				Message: err.Error(),
+			})
+		}
+
 		return ctx.Status(http.StatusUnauthorized).JSON(dto.ErrorResponse{
 			Error:   string(enum.AuthErrorLoginFailed),
-			Message: err.Error(),
+			Message: "Login failed",
 		})
 	}
 
@@ -72,13 +87,23 @@ func (c *Controller) Register(ctx *fiber.Ctx) error {
 
 	resp, err := c.authService.Register(ctx.Context(), req)
 	if err != nil {
-		statusCode := http.StatusBadRequest
-		if err.Error() == "email already registered" || err.Error() == "tenant slug already exists" {
-			statusCode = http.StatusConflict
+		if errors.Is(err, authservice.ErrInvalidRegisterRequest) {
+			return ctx.Status(http.StatusBadRequest).JSON(dto.ErrorResponse{
+				Error:   string(enum.AuthErrorInvalidRequest),
+				Message: "Invalid register payload",
+			})
 		}
-		return ctx.Status(statusCode).JSON(dto.ErrorResponse{
+
+		if errors.Is(err, authservice.ErrEmailAlreadyRegistered) || errors.Is(err, authservice.ErrTenantSlugExists) {
+			return ctx.Status(http.StatusConflict).JSON(dto.ErrorResponse{
+				Error:   string(enum.AuthErrorRegisterFailed),
+				Message: err.Error(),
+			})
+		}
+
+		return ctx.Status(http.StatusInternalServerError).JSON(dto.ErrorResponse{
 			Error:   string(enum.AuthErrorRegisterFailed),
-			Message: err.Error(),
+			Message: "Register failed",
 		})
 	}
 
