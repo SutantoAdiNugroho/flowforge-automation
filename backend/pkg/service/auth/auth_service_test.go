@@ -39,6 +39,11 @@ func (r *fakeAuthRepo) GetUserByIDAndTenant(ctx context.Context, userID, tenantI
 	return nil, nil
 }
 
+func (r *fakeAuthRepo) CheckUserExists(ctx context.Context, userID, tenantID uuid.UUID) (bool, error) {
+	u, err := r.GetUserByIDAndTenant(ctx, userID, tenantID)
+	return u != nil, err
+}
+
 func (r *fakeAuthRepo) CreateTenant(ctx context.Context, tenant *domain.Tenant) error {
 	r.tenantBySlug[tenant.Slug] = tenant
 	return nil
