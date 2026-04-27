@@ -10,7 +10,6 @@ import (
 	"github.com/gofiber/fiber/v2"
 )
 
-// ContextKey type for storing values in fiber context
 type ContextKey string
 
 const (
@@ -21,10 +20,8 @@ const (
 	UserClaimsKey ContextKey = "user_claims"
 )
 
-// Middleware returns JWT validation middleware
 func Middleware(jwtManager *JWTManager) fiber.Handler {
 	return func(ctx *fiber.Ctx) error {
-		// Extract token from Authorization header
 		authHeader := ctx.Get("Authorization")
 		if authHeader == "" {
 			return ctx.Status(http.StatusUnauthorized).JSON(dto.ErrorResponse{
@@ -33,7 +30,6 @@ func Middleware(jwtManager *JWTManager) fiber.Handler {
 			})
 		}
 
-		// Extract bearer token
 		parts := strings.Split(authHeader, " ")
 		if len(parts) != 2 || parts[0] != "Bearer" {
 			return ctx.Status(http.StatusUnauthorized).JSON(dto.ErrorResponse{
@@ -44,7 +40,6 @@ func Middleware(jwtManager *JWTManager) fiber.Handler {
 
 		tokenString := parts[1]
 
-		// Validate token
 		claims, err := jwtManager.ValidateToken(tokenString)
 		if err != nil {
 			return ctx.Status(http.StatusUnauthorized).JSON(dto.ErrorResponse{
@@ -53,7 +48,6 @@ func Middleware(jwtManager *JWTManager) fiber.Handler {
 			})
 		}
 
-		// Store claims in context
 		ctx.Locals(string(UserIDKey), claims.UserID.String())
 		ctx.Locals(string(TenantIDKey), claims.TenantID.String())
 		ctx.Locals(string(EmailKey), claims.Email)
@@ -76,6 +70,11 @@ func RoleBasedMiddleware(allowedRoles ...string) fiber.Handler {
 		}
 
 		userRole := role.(string)
+		
+		if userRole == string(enum.UserRoleSuperAdmin) {
+			return ctx.Next()
+		}
+
 		for _, allowedRole := range allowedRoles {
 			if userRole == allowedRole {
 				return ctx.Next()
@@ -89,7 +88,6 @@ func RoleBasedMiddleware(allowedRoles ...string) fiber.Handler {
 	}
 }
 
-// GetUserID extracts user ID from context
 func GetUserID(ctx *fiber.Ctx) (string, error) {
 	userID := ctx.Locals(string(UserIDKey))
 	if userID == nil {
@@ -98,7 +96,6 @@ func GetUserID(ctx *fiber.Ctx) (string, error) {
 	return userID.(string), nil
 }
 
-// GetTenantID extracts tenant ID from context
 func GetTenantID(ctx *fiber.Ctx) (string, error) {
 	tenantID := ctx.Locals(string(TenantIDKey))
 	if tenantID == nil {
@@ -107,7 +104,6 @@ func GetTenantID(ctx *fiber.Ctx) (string, error) {
 	return tenantID.(string), nil
 }
 
-// GetRole extracts role from context
 func GetRole(ctx *fiber.Ctx) (string, error) {
 	role := ctx.Locals(string(RoleKey))
 	if role == nil {

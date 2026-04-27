@@ -1,17 +1,24 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
-import { FiMenu, FiX, FiLogOut, FiHome, FiUsers, FiGitlab } from "react-icons/fi";
+import { usePathname, useRouter } from "next/navigation";
+import { FiMenu, FiX, FiLogOut, FiHome, FiUsers, FiGitlab, FiShield } from "react-icons/fi";
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const { user, logout } = useAuth();
   const pathname = usePathname();
+  const router = useRouter();
   const [sidebarOpen, setSidebarOpen] = useState(true);
 
   const isActive = (path: string) => pathname === path || pathname.startsWith(path + "/");
+
+  useEffect(() => {
+    if (user?.role === "super-admin" && pathname === "/dashboard") {
+      router.push("/admin/tenants");
+    }
+  }, [user, pathname, router]);
 
   if (!user) return null;
 
@@ -25,7 +32,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                 <FiGitlab className="w-6 h-6 text-blue-400" />
                 <h1 className="text-xl font-bold">FlowForge</h1>
               </div>
-              <p className="text-xs text-gray-400 mt-2">{user.email}</p>
+              <p className="text-xs text-gray-400 mt-2 truncate w-40">{user.email}</p>
               <p className="text-xs text-gray-500 uppercase mt-1">Role: {user.role}</p>
             </div>
           )}
@@ -39,16 +46,32 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         </div>
 
         <nav className="flex-1 p-4 space-y-2">
-          <Link
-            href="/dashboard"
-            className={`flex items-center gap-3 p-2 rounded hover:bg-gray-800 transition-colors ${
-              isActive("/dashboard") && pathname === "/dashboard" ? "bg-gray-800" : ""
-            }`}
-            title="Workflows"
-          >
-            <FiHome className="w-5 h-5 flex-shrink-0" />
-            {sidebarOpen && <span>Workflows</span>}
-          </Link>
+          {user.role !== "super-admin" && (
+            <Link
+              href="/dashboard"
+              className={`flex items-center gap-3 p-2 rounded hover:bg-gray-800 transition-colors ${
+                isActive("/dashboard") && pathname === "/dashboard" ? "bg-gray-800" : ""
+              }`}
+              title="Workflows"
+            >
+              <FiHome className="w-5 h-5 flex-shrink-0" />
+              {sidebarOpen && <span>Workflows</span>}
+            </Link>
+          )}
+
+          {user.role === "super-admin" && (
+            <Link
+              href="/admin/tenants"
+              className={`flex items-center gap-3 p-2 rounded hover:bg-gray-800 transition-colors ${
+                isActive("/admin") ? "bg-gray-800 text-red-400" : "text-red-400"
+              }`}
+              title="System Admin"
+            >
+              <FiShield className="w-5 h-5 flex-shrink-0" />
+              {sidebarOpen && <span>System Admin</span>}
+            </Link>
+          )}
+
           {user.role === "admin" && (
             <Link
               href="/dashboard/users"
