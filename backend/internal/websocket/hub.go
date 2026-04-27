@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"flowforge-automation-backend/pkg/service/execution"
+
 	"github.com/gofiber/fiber/v2"
 	"github.com/google/uuid"
 )
@@ -99,7 +100,12 @@ func SSEHandler(hub *Hub) fiber.Handler {
 		tenantID := ctx.Locals("tenant_id")
 		tenantStr := ""
 		if tenantID != nil {
-			tenantStr = tenantID.(string)
+			switch v := tenantID.(type) {
+			case string:
+				tenantStr = v
+			default:
+				tenantStr = fmt.Sprint(v)
+			}
 		}
 
 		ctx.Set("Content-Type", "text/event-stream")
@@ -120,18 +126,33 @@ func SSEHandler(hub *Hub) fiber.Handler {
 			ticker := time.NewTicker(30 * time.Second)
 			defer ticker.Stop()
 
+			if _, err := fmt.Fprintf(w, ": connected\n\n"); err != nil {
+				return
+			}
+			if err := w.Flush(); err != nil {
+				return
+			}
+
 			for {
 				select {
 				case msg, ok := <-client.Send:
 					if !ok {
 						return
 					}
-					fmt.Fprintf(w, "data: %s\n\n", msg)
-					w.Flush()
+					if _, err := fmt.Fprintf(w, "data: %s\n\n", msg); err != nil {
+						return
+					}
+					if err := w.Flush(); err != nil {
+						return
+					}
 				case <-ticker.C:
 					// keepalive
-					fmt.Fprintf(w, ": keepalive\n\n")
-					w.Flush()
+					if _, err := fmt.Fprintf(w, ": keepalive\n\n"); err != nil {
+						return
+					}
+					if err := w.Flush(); err != nil {
+						return
+					}
 				}
 			}
 		})

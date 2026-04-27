@@ -9,12 +9,13 @@ import (
 	runrepo "flowforge-automation-backend/pkg/repository/run"
 	workflowrepo "flowforge-automation-backend/pkg/repository/workflow"
 	"flowforge-automation-backend/pkg/service/execution"
+
 	"github.com/google/uuid"
 )
 
 var (
-	ErrWorkflowNotFound = errors.New("workflow not found")
-	ErrRunNotFound      = errors.New("run not found")
+	ErrWorkflowNotFound  = errors.New("workflow not found")
+	ErrRunNotFound       = errors.New("run not found")
 	ErrRunNotCancellable = errors.New("run is not in a cancellable state")
 	ErrWorkflowInactive  = errors.New("workflow is inactive")
 )
@@ -37,6 +38,9 @@ func (s *service) TriggerRun(ctx context.Context, tenantID, userID, workflowID u
 	wf, err := s.workflowRepo.GetByIDAndTenant(ctx, workflowID, tenantID)
 	if err != nil {
 		return nil, err
+	}
+	if wf == nil {
+		return nil, ErrWorkflowNotFound
 	}
 	if !wf.IsActive {
 		return nil, ErrWorkflowInactive
@@ -117,5 +121,3 @@ func (s *service) GetStats(ctx context.Context, tenantID uuid.UUID, hours int) (
 	}
 	return s.runRepo.GetRunStats(ctx, tenantID, hours)
 }
-
-

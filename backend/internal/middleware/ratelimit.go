@@ -1,6 +1,7 @@
 package middleware
 
 import (
+	"fmt"
 	"sync"
 	"time"
 
@@ -13,10 +14,10 @@ type rateLimitEntry struct {
 }
 
 type RateLimiter struct {
-	mu       sync.Mutex
-	entries  map[string]*rateLimitEntry
-	rate     float64 // tokens per second
-	burst    int     // max tokens
+	mu      sync.Mutex
+	entries map[string]*rateLimitEntry
+	rate    float64 // tokens per second
+	burst   int     // max tokens
 }
 
 func NewRateLimiter(requestsPerSecond float64, burst int) *RateLimiter {
@@ -33,7 +34,12 @@ func (rl *RateLimiter) Middleware() fiber.Handler {
 	return func(ctx *fiber.Ctx) error {
 		key := ctx.IP()
 		if tenantID := ctx.Locals("tenant_id"); tenantID != nil {
-			key = tenantID.(string)
+			switch v := tenantID.(type) {
+			case string:
+				key = v
+			default:
+				key = fmt.Sprint(v)
+			}
 		}
 
 		if !rl.allow(key) {

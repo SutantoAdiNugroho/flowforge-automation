@@ -26,7 +26,6 @@ func ConnectDatabase(dsn string) (*sql.DB, error) {
 	return db, nil
 }
 
-// ConnectDatabaseGORM connects to database using GORM
 func ConnectDatabaseGORM(dsn string) (*gorm.DB, error) {
 	db, err := gorm.Open(postgres.Open(dsn), &gorm.Config{})
 	if err != nil {

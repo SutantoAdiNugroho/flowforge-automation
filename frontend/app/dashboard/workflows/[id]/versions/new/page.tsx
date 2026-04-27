@@ -213,7 +213,12 @@ export default function NewWorkflowVersionPage({ params }: { params: Promise<{ i
               </div>
 
               <div className="space-y-2">
-                <label className="block text-sm font-medium text-gray-700">DAG Definition (JSON)</label>
+                <div className="flex items-center justify-between">
+                  <label className="block text-sm font-medium text-gray-700">DAG Definition (JSON)</label>
+                  <Link href="/dashboard/workflows/dag-guide">
+                    <Button type="button" variant="secondary">DAG Guide</Button>
+                  </Link>
+                </div>
                 <div className="border border-gray-200 rounded-md overflow-hidden bg-gray-50">
                   <Editor
                     height="400px"
