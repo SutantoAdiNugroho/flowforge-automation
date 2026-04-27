@@ -9,6 +9,7 @@ import (
 
 	"flowforge-automation-backend/pkg/model/domain"
 	"flowforge-automation-backend/pkg/model/dto"
+
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/suite"
 )
@@ -172,9 +173,8 @@ func (s *AuthWorkflowTestSuite) TestAuthRegister() {
 func (s *AuthWorkflowTestSuite) TestAuthLogin() {
 	s.Run("Positive Case: Should login successfully", func() {
 		req := dto.LoginRequest{
-			TenantSlug: s.tenantSlug,
-			Email:      s.email,
-			Password:   s.password,
+			Email:    s.email,
+			Password: s.password,
 		}
 
 		resp, err := APIRequest{Method: http.MethodPost, Path: "/auth/login", Body: req}.Send()
@@ -198,9 +198,8 @@ func (s *AuthWorkflowTestSuite) TestAuthLogin() {
 
 	s.Run("Negative Case: Should return 401 for invalid password", func() {
 		req := dto.LoginRequest{
-			TenantSlug: s.tenantSlug,
-			Email:      s.email,
-			Password:   "WrongPassword123!",
+			Email:    s.email,
+			Password: "WrongPassword123!",
 		}
 
 		resp, err := APIRequest{Method: http.MethodPost, Path: "/auth/login", Body: req}.Send()
@@ -212,23 +211,8 @@ func (s *AuthWorkflowTestSuite) TestAuthLogin() {
 
 	s.Run("Negative Case: Should return 401 for non-existent email", func() {
 		req := dto.LoginRequest{
-			TenantSlug: s.tenantSlug,
-			Email:      "nonexistent@example.com",
-			Password:   s.password,
-		}
-
-		resp, err := APIRequest{Method: http.MethodPost, Path: "/auth/login", Body: req}.Send()
-		s.Require().NoError(err)
-		defer resp.Body.Close()
-
-		s.Equal(http.StatusUnauthorized, resp.StatusCode)
-	})
-
-	s.Run("Negative Case: Should return 401 for invalid tenant slug", func() {
-		req := dto.LoginRequest{
-			TenantSlug: "invalid-tenant",
-			Email:      s.email,
-			Password:   s.password,
+			Email:    "nonexistent@example.com",
+			Password: s.password,
 		}
 
 		resp, err := APIRequest{Method: http.MethodPost, Path: "/auth/login", Body: req}.Send()
@@ -239,7 +223,11 @@ func (s *AuthWorkflowTestSuite) TestAuthLogin() {
 	})
 
 	s.Run("Negative Case: Should return 400 for invalid request body", func() {
-		req := map[string]string{"tenant_slug": s.tenantSlug}
+		req := dto.LoginRequest{
+			Email:    "",
+			Password: s.password,
+		}
+
 		resp, err := APIRequest{Method: http.MethodPost, Path: "/auth/login", Body: req}.Send()
 		s.Require().NoError(err)
 		defer resp.Body.Close()
@@ -298,12 +286,12 @@ func (s *AuthWorkflowTestSuite) TestWorkflowCreate() {
 		definition := domain.JSONB{"task": "daily job"}
 
 		req := dto.CreateWorkflowRequest{
-			Name:            "Cron Workflow",
-			Description:     "Cron triggered workflow",
-			Definition:      definition,
-			TriggerType:     "cron",
-			CronExpression:  "0 9 * * *",
-			IsActive:        boolPtr(false),
+			Name:           "Cron Workflow",
+			Description:    "Cron triggered workflow",
+			Definition:     definition,
+			TriggerType:    "cron",
+			CronExpression: "0 9 * * *",
+			IsActive:       boolPtr(false),
 		}
 
 		resp, err := APIRequest{Method: http.MethodPost, Path: "/workflows", Body: req, Token: s.token}.Send()
@@ -385,9 +373,9 @@ func (s *AuthWorkflowTestSuite) TestWorkflowCreate() {
 
 	s.Run("Negative Case: Should return 400 for missing name", func() {
 		req := dto.CreateWorkflowRequest{
-			Description:  "Missing name",
-			Definition:   domain.JSONB{},
-			TriggerType:  "manual",
+			Description: "Missing name",
+			Definition:  domain.JSONB{},
+			TriggerType: "manual",
 		}
 
 		resp, err := APIRequest{Method: http.MethodPost, Path: "/workflows", Body: req, Token: s.token}.Send()

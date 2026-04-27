@@ -1,6 +1,7 @@
 package auth
 
 import (
+	"context"
 	"errors"
 	"net/http"
 	"strings"
@@ -8,19 +9,24 @@ import (
 	"flowforge-automation-backend/pkg/model/domain/enum"
 	"flowforge-automation-backend/pkg/model/dto"
 	"github.com/gofiber/fiber/v2"
+	"github.com/google/uuid"
 )
 
 type ContextKey string
 
 const (
-	UserIDKey    ContextKey = "user_id"
-	TenantIDKey  ContextKey = "tenant_id"
-	EmailKey     ContextKey = "email"
-	RoleKey      ContextKey = "role"
+	UserIDKey     ContextKey = "user_id"
+	TenantIDKey   ContextKey = "tenant_id"
+	EmailKey      ContextKey = "email"
+	RoleKey       ContextKey = "role"
 	UserClaimsKey ContextKey = "user_claims"
 )
 
-func Middleware(jwtManager *JWTManager) fiber.Handler {
+type UserLookup interface {
+	CheckUserExists(ctx context.Context, userID, tenantID uuid.UUID) (bool, error)
+}
+
+func Middleware(jwtManager *JWTManager, repo UserLookup) fiber.Handler {
 	return func(ctx *fiber.Ctx) error {
 		authHeader := ctx.Get("Authorization")
 		if authHeader == "" {
@@ -46,6 +52,16 @@ func Middleware(jwtManager *JWTManager) fiber.Handler {
 				Error:   string(enum.AuthErrorInvalidToken),
 				Message: "Invalid or expired token",
 			})
+		}
+
+		if repo != nil {
+			exists, err := repo.CheckUserExists(ctx.Context(), claims.UserID, claims.TenantID)
+			if err != nil || !exists {
+				return ctx.Status(http.StatusUnauthorized).JSON(dto.ErrorResponse{
+					Error:   string(enum.AuthErrorUnauthorized),
+					Message: "User or tenant no longer exists. Please login again.",
+				})
+			}
 		}
 
 		ctx.Locals(string(UserIDKey), claims.UserID.String())

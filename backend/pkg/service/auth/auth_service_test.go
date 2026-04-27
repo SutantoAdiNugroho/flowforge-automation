@@ -8,6 +8,7 @@ import (
 	"flowforge-automation-backend/pkg/model/domain"
 	"flowforge-automation-backend/pkg/model/domain/enum"
 	"flowforge-automation-backend/pkg/model/dto"
+
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"golang.org/x/crypto/bcrypt"
@@ -15,26 +16,22 @@ import (
 
 type fakeAuthRepo struct {
 	tenantBySlug map[string]*domain.Tenant
-	userByKey    map[string]*domain.User
+	userByEmail  map[string]*domain.User
 }
 
 func newFakeAuthRepo() *fakeAuthRepo {
 	return &fakeAuthRepo{
 		tenantBySlug: make(map[string]*domain.Tenant),
-		userByKey:    make(map[string]*domain.User),
+		userByEmail:  make(map[string]*domain.User),
 	}
 }
 
-func userKey(email string, tenantID uuid.UUID) string {
-	return email + "|" + tenantID.String()
-}
-
-func (r *fakeAuthRepo) GetUserByEmailAndTenant(ctx context.Context, email string, tenantID uuid.UUID) (*domain.User, error) {
-	return r.userByKey[userKey(email, tenantID)], nil
+func (r *fakeAuthRepo) GetUserByEmail(ctx context.Context, email string) (*domain.User, error) {
+	return r.userByEmail[email], nil
 }
 
 func (r *fakeAuthRepo) GetUserByIDAndTenant(ctx context.Context, userID, tenantID uuid.UUID) (*domain.User, error) {
-	for _, u := range r.userByKey {
+	for _, u := range r.userByEmail {
 		if u.ID == userID && u.TenantID == tenantID {
 			return u, nil
 		}
@@ -48,7 +45,7 @@ func (r *fakeAuthRepo) CreateTenant(ctx context.Context, tenant *domain.Tenant) 
 }
 
 func (r *fakeAuthRepo) CreateUser(ctx context.Context, user *domain.User) error {
-	r.userByKey[userKey(user.Email, user.TenantID)] = user
+	r.userByEmail[user.Email] = user
 	return nil
 }
 
@@ -65,8 +62,8 @@ func TestLoginSuccess(t *testing.T) {
 	assert.NoError(t, err)
 
 	userID := uuid.New()
-	repo.userByKey[userKey("admin@acme.com", tenantID)] = &domain.User{
-		BaseModel: domain.BaseModel{ID: userID},
+	repo.userByEmail["admin@acme.com"] = &domain.User{
+		BaseModel:    domain.BaseModel{ID: userID},
 		TenantID:     tenantID,
 		Email:        "admin@acme.com",
 		PasswordHash: string(hash),
@@ -77,9 +74,8 @@ func TestLoginSuccess(t *testing.T) {
 	svc := NewAuthService(repo, "test-secret", 24*time.Hour)
 
 	res, err := svc.Login(context.Background(), &dto.LoginRequest{
-		TenantSlug: "acme",
-		Email:      "admin@acme.com",
-		Password:   "password123",
+		Email:    "admin@acme.com",
+		Password: "password123",
 	})
 
 	assert.NoError(t, err)
@@ -94,9 +90,8 @@ func TestLoginInvalidCredentials(t *testing.T) {
 	svc := NewAuthService(repo, "test-secret", 24*time.Hour)
 
 	_, err := svc.Login(context.Background(), &dto.LoginRequest{
-		TenantSlug: "unknown",
-		Email:      "admin@acme.com",
-		Password:   "password123",
+		Email:    "admin@acme.com",
+		Password: "password123",
 	})
 
 	assert.ErrorIs(t, err, ErrInvalidCredentials)

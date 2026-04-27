@@ -47,6 +47,7 @@ type Container struct {
 	JWTManager         *auth.JWTManager
 	WSHub              *websocket.Hub
 	Scheduler          scheduler.Service
+	AuthRepo           authrepository.Repository
 }
 
 func NewContainer(cfg config.Config) (*Container, error) {
@@ -122,6 +123,7 @@ func NewContainer(cfg config.Config) (*Container, error) {
 		JWTManager:         jwtMgr,
 		WSHub:              wsHub,
 		Scheduler:          schedSvc,
+		AuthRepo:           authRepo,
 	}, nil
 }
 

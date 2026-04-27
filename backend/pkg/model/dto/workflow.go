@@ -19,3 +19,12 @@ type UpdateWorkflowRequest struct {
 	CronExpression string       `json:"cron_expression"`
 	IsActive       *bool        `json:"is_active,omitempty"`
 }
+
+type CreateWorkflowVersionRequest struct {
+	ImportFromVersion *int         `json:"import_from_version,omitempty"`
+	Name              string       `json:"name"`
+	Description       string       `json:"description"`
+	Definition        domain.JSONB `json:"definition"`
+	TriggerType       string       `json:"trigger_type"`
+	CronExpression    string       `json:"cron_expression"`
+}

@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"flowforge-automation-backend/pkg/model/domain"
+
 	"github.com/DATA-DOG/go-sqlmock"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
@@ -29,21 +30,20 @@ func newMockedRepo(t *testing.T) (Repository, sqlmock.Sqlmock, func()) {
 	return NewAuthRepository(gormDB), mock, cleanup
 }
 
-func TestGetUserByEmailAndTenantFound(t *testing.T) {
+func TestGetUserByEmailFound(t *testing.T) {
 	repo, mock, cleanup := newMockedRepo(t)
 	defer cleanup()
 
-	tenantID := uuid.New()
 	userID := uuid.New()
 
 	rows := sqlmock.NewRows([]string{"id", "tenant_id", "email", "password_hash", "role", "is_active"}).
-		AddRow(userID, tenantID, "admin@acme.com", "hash", "admin", true)
+		AddRow(userID, uuid.New(), "admin@acme.com", "hash", "admin", true)
 
-	mock.ExpectQuery(regexp.QuoteMeta(`SELECT * FROM "users" WHERE email = $1 AND tenant_id = $2 ORDER BY "users"."id" LIMIT $3`)).
-		WithArgs("admin@acme.com", tenantID, 1).
+	mock.ExpectQuery(regexp.QuoteMeta(`SELECT * FROM "users" WHERE email = $1 ORDER BY "users"."id" LIMIT $2`)).
+		WithArgs("admin@acme.com", 1).
 		WillReturnRows(rows)
 
-	user, err := repo.GetUserByEmailAndTenant(context.Background(), "admin@acme.com", tenantID)
+	user, err := repo.GetUserByEmail(context.Background(), "admin@acme.com")
 
 	assert.NoError(t, err)
 	assert.NotNil(t, user)
@@ -51,17 +51,15 @@ func TestGetUserByEmailAndTenantFound(t *testing.T) {
 	assert.NoError(t, mock.ExpectationsWereMet())
 }
 
-func TestGetUserByEmailAndTenantNotFound(t *testing.T) {
+func TestGetUserByEmailNotFound(t *testing.T) {
 	repo, mock, cleanup := newMockedRepo(t)
 	defer cleanup()
 
-	tenantID := uuid.New()
-
-	mock.ExpectQuery(regexp.QuoteMeta(`SELECT * FROM "users" WHERE email = $1 AND tenant_id = $2 ORDER BY "users"."id" LIMIT $3`)).
-		WithArgs("missing@acme.com", tenantID, 1).
+	mock.ExpectQuery(regexp.QuoteMeta(`SELECT * FROM "users" WHERE email = $1 ORDER BY "users"."id" LIMIT $2`)).
+		WithArgs("missing@acme.com", 1).
 		WillReturnError(gorm.ErrRecordNotFound)
 
-	user, err := repo.GetUserByEmailAndTenant(context.Background(), "missing@acme.com", tenantID)
+	user, err := repo.GetUserByEmail(context.Background(), "missing@acme.com")
 
 	assert.NoError(t, err)
 	assert.Nil(t, user)

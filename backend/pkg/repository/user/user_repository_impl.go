@@ -54,6 +54,20 @@ func (r *repository) GetByIDAndTenant(ctx context.Context, userID, tenantID uuid
 	return &user, nil
 }
 
+func (r *repository) GetByEmail(ctx context.Context, email string) (*domain.User, error) {
+	var user domain.User
+	err := r.db.WithContext(ctx).
+		Where("email = ?", email).
+		First(&user).Error
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, nil
+		}
+		return nil, err
+	}
+	return &user, nil
+}
+
 func (r *repository) GetByEmailAndTenant(ctx context.Context, email string, tenantID uuid.UUID) (*domain.User, error) {
 	var user domain.User
 	err := r.db.WithContext(ctx).
