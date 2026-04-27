@@ -13,7 +13,7 @@ import { useSSE } from "@/hooks/useSSE";
 export default function RunDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const resolvedParams = use(params);
   const id = resolvedParams.id;
-  
+
   const [runData, setRunData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
 
@@ -36,12 +36,34 @@ export default function RunDetailPage({ params }: { params: Promise<{ id: string
     if (event.type === "step_update") {
       setRunData((prev: any) => {
         if (!prev) return prev;
-        const newSteps = prev.steps.map((step: any) => 
-          step.step_id === event.payload.step_id 
-            ? { ...step, status: event.payload.status, error: event.payload.error, updated_at: event.payload.timestamp }
-            : step
-        );
-        return { ...prev, steps: newSteps };
+
+        const stepExists = prev.steps.some((s: any) => s.step_id === event.payload.step_id);
+
+        if (stepExists) {
+          const newSteps = prev.steps.map((step: any) =>
+            step.step_id === event.payload.step_id
+              ? {
+                ...step,
+                status: event.payload.status,
+                error: event.payload.error,
+                duration_ms: event.payload.duration_ms || step.duration_ms,
+                updated_at: event.payload.timestamp
+              }
+              : step
+          );
+          return { ...prev, steps: newSteps };
+        } else {
+          const newStep = {
+            id: event.payload.step_id,
+            step_id: event.payload.step_id,
+            step_name: event.payload.step_name,
+            status: event.payload.status,
+            error: event.payload.error,
+            duration_ms: event.payload.duration_ms,
+            updated_at: event.payload.timestamp
+          };
+          return { ...prev, steps: [...prev.steps, newStep] };
+        }
       });
     } else if (event.type === "run_update") {
       setRunData((prev: any) => {
@@ -76,9 +98,9 @@ export default function RunDetailPage({ params }: { params: Promise<{ id: string
               <p className="text-gray-500 mt-1">Workflow ID: {run.workflow_id}</p>
               <div className="mt-4 flex space-x-3">
                 <Badge variant={
-                  run.status === 'success' ? 'success' : 
-                  run.status === 'failed' ? 'danger' : 
-                  run.status === 'cancelled' ? 'warning' : 'default'
+                  run.status === 'success' ? 'success' :
+                    run.status === 'failed' ? 'danger' :
+                      run.status === 'cancelled' ? 'warning' : 'default'
                 }>
                   Status: {run.status}
                 </Badge>
@@ -125,9 +147,9 @@ export default function RunDetailPage({ params }: { params: Promise<{ id: string
                       {s.status === 'pending' && <FiClock className="w-4 h-4 text-gray-400" />}
                       {s.status === 'skipped' && <FiX className="w-4 h-4 text-gray-400" />}
                       <Badge variant={
-                        s.status === 'success' ? 'success' : 
-                        s.status === 'failed' ? 'danger' : 
-                        s.status === 'running' ? 'warning' : 'default'
+                        s.status === 'success' ? 'success' :
+                          s.status === 'failed' ? 'danger' :
+                            s.status === 'running' ? 'warning' : 'default'
                       }>
                         {s.status}
                       </Badge>

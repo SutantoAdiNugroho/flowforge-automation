@@ -116,6 +116,7 @@ func SSEHandler(hub *Hub) fiber.Handler {
 		hub.Register(client)
 
 		ctx.Context().SetBodyStreamWriter(func(w *bufio.Writer) {
+			defer hub.Unregister(client)
 			ticker := time.NewTicker(30 * time.Second)
 			defer ticker.Stop()
 
@@ -135,7 +136,6 @@ func SSEHandler(hub *Hub) fiber.Handler {
 			}
 		})
 
-		hub.Unregister(client)
 		return nil
 	}
 }

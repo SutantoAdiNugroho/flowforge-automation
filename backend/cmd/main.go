@@ -29,6 +29,10 @@ func main() {
 		}
 	}
 
+	// Start scheduler
+	container.Scheduler.Start()
+	defer container.Scheduler.Stop()
+
 	ctrl := routes.Controllers{
 		Health:   container.HealthController,
 		Auth:     container.AuthController,
