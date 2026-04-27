@@ -1,0 +1,2 @@
+INSERT INTO tenants (id, name, slug) VALUES ('d8c47b56-7871-460f-968f-9a7e37e96b67', 'FlowForge Admin', 'flowforge') ON CONFLICT DO NOTHING;
+INSERT INTO users (id, tenant_id, email, password_hash, role) VALUES ('a1b2c3d4-e5f6-7890-1234-56789abcdef0', 'd8c47b56-7871-460f-968f-9a7e37e96b67', 'admin@flowforge.com', '$2a$10$Lcsp4KbT8ardCNPdBzYMWeH446IZVPSL9I88pK8vSZs55oG4R.hhq', 'admin') ON CONFLICT DO NOTHING;

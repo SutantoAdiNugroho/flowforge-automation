@@ -7,6 +7,7 @@ import (
 	authcontroller "flowforge-automation-backend/pkg/controller/auth"
 	healthcontroller "flowforge-automation-backend/pkg/controller/health"
 	runcontroller "flowforge-automation-backend/pkg/controller/run"
+	usercontroller "flowforge-automation-backend/pkg/controller/user"
 	workflowcontroller "flowforge-automation-backend/pkg/controller/workflow"
 
 	"github.com/gofiber/fiber/v2"
@@ -18,6 +19,7 @@ type Controllers struct {
 	Auth     *authcontroller.Controller
 	Workflow *workflowcontroller.Controller
 	Run      *runcontroller.Controller
+	User     *usercontroller.Controller
 }
 
 func Setup(ctrl Controllers, jwtManager *auth.JWTManager, wsHub *websocket.Hub) *fiber.App {
@@ -75,6 +77,13 @@ func Setup(ctrl Controllers, jwtManager *auth.JWTManager, wsHub *websocket.Hub) 
 	adminOnly.Use(auth.RoleBasedMiddleware("admin"))
 	adminOnly.Delete("/workflows/:id", ctrl.Workflow.Delete)
 	adminOnly.Put("/workflows/:id/rollback/:version", ctrl.Workflow.Rollback)
+
+	// users - admin only
+	adminOnly.Get("/users", ctrl.User.List)
+	adminOnly.Post("/users", ctrl.User.Create)
+	adminOnly.Get("/users/:id", ctrl.User.GetByID)
+	adminOnly.Put("/users/:id", ctrl.User.Update)
+	adminOnly.Delete("/users/:id", ctrl.User.Delete)
 
 	return app
 }
