@@ -40,9 +40,10 @@ func main() {
 		Run:      container.RunController,
 		User:     container.UserController,
 		Tenant:   container.TenantController,
+		Webhook:  container.WebhookController,
 	}
 
-	app := routes.Setup(ctrl, container.JWTManager, container.WSHub)
+	app := routes.Setup(ctrl, container.JWTManager, container.WSHub, container.AuthRepo)
 	log.Printf("flowforge backend running on port %s", cfg.Port)
 	if err := app.Listen(":" + cfg.Port); err != nil {
 		log.Fatalf("failed to run backend: %v", err)

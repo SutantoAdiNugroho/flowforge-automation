@@ -21,6 +21,7 @@ var (
 	ErrTenantNotFound       = errors.New("tenant not found")
 	ErrInvalidCreateRequest = errors.New("invalid create request")
 	ErrTenantSlugExists     = errors.New("tenant slug already exists")
+	ErrEmailAlreadyExists   = errors.New("email already exists")
 	ErrInvalidUpdateRequest = errors.New("invalid update request")
 	ErrInvalidTenantSlug    = errors.New("invalid tenant slug format")
 )
@@ -72,6 +73,15 @@ func (s *service) Create(ctx context.Context, req *dto.CreateTenantRequest) (*do
 		return nil, nil, errors.New("password must be at least 6 characters")
 	}
 
+	adminEmail := strings.ToLower(strings.TrimSpace(req.AdminEmail))
+	existingUser, err := s.userRepo.GetByEmail(ctx, adminEmail)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to check existing user email: %w", err)
+	}
+	if existingUser != nil {
+		return nil, nil, ErrEmailAlreadyExists
+	}
+
 	existing, err := s.tenantRepo.GetBySlug(ctx, slug)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to check tenant: %w", err)
@@ -103,7 +113,7 @@ func (s *service) Create(ctx context.Context, req *dto.CreateTenantRequest) (*do
 	adminUser := &domain.User{
 		BaseModel:    domain.BaseModel{ID: userID},
 		TenantID:     tenantID,
-		Email:        strings.ToLower(strings.TrimSpace(req.AdminEmail)),
+		Email:        adminEmail,
 		PasswordHash: string(hashedPassword),
 		Role:         string(enum.UserRoleAdmin),
 		IsActive:     true,
@@ -111,9 +121,9 @@ func (s *service) Create(ctx context.Context, req *dto.CreateTenantRequest) (*do
 
 	if err := s.userRepo.Create(ctx, adminUser); err != nil {
 		if isUniqueViolation(err) {
-			return tenantObj, nil, errors.New("admin email already registered in another tenant")
+			return nil, nil, ErrEmailAlreadyExists
 		}
-		return tenantObj, nil, fmt.Errorf("failed to create admin user: %w", err)
+		return nil, nil, fmt.Errorf("failed to create admin user: %w", err)
 	}
 
 	return tenantObj, adminUser, nil

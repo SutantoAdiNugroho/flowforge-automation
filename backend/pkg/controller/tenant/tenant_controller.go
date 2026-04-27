@@ -32,6 +32,9 @@ func (c *Controller) Create(ctx *fiber.Ctx) error {
 		if errors.Is(err, tenantservice.ErrInvalidCreateRequest) {
 			return ctx.Status(http.StatusBadRequest).JSON(dto.ErrorResponse{Error: "INVALID_REQUEST", Message: err.Error()})
 		}
+		if errors.Is(err, tenantservice.ErrEmailAlreadyExists) {
+			return ctx.Status(http.StatusConflict).JSON(dto.ErrorResponse{Error: "EMAIL_EXISTS", Message: err.Error()})
+		}
 		if errors.Is(err, tenantservice.ErrTenantSlugExists) {
 			return ctx.Status(http.StatusConflict).JSON(dto.ErrorResponse{Error: "SLUG_EXISTS", Message: err.Error()})
 		}

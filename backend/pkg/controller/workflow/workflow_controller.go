@@ -9,6 +9,7 @@ import (
 	"flowforge-automation-backend/pkg/model/dto"
 	"flowforge-automation-backend/pkg/model/dto/response"
 	workflowservice "flowforge-automation-backend/pkg/service/workflow"
+
 	"github.com/gofiber/fiber/v2"
 	"github.com/google/uuid"
 )
@@ -117,6 +118,72 @@ func (c *Controller) Update(ctx *fiber.Ctx) error {
 			return ctx.Status(http.StatusNotFound).JSON(dto.ErrorResponse{Error: "WORKFLOW_NOT_FOUND", Message: err.Error()})
 		}
 		return ctx.Status(http.StatusInternalServerError).JSON(dto.ErrorResponse{Error: "WORKFLOW_UPDATE_FAILED", Message: "failed to update workflow"})
+	}
+
+	return ctx.Status(http.StatusOK).JSON(workflow)
+}
+
+func (c *Controller) CreateVersion(ctx *fiber.Ctx) error {
+	tenantID, userID, err := getAuthContextIDs(ctx)
+	if err != nil {
+		return ctx.Status(http.StatusUnauthorized).JSON(dto.ErrorResponse{Error: "UNAUTHORIZED", Message: "unauthorized"})
+	}
+
+	workflowID, err := uuid.Parse(ctx.Params("id"))
+	if err != nil {
+		return ctx.Status(http.StatusBadRequest).JSON(dto.ErrorResponse{Error: "INVALID_REQUEST", Message: "invalid workflow id"})
+	}
+
+	req := &dto.CreateWorkflowVersionRequest{}
+	if err := ctx.BodyParser(req); err != nil {
+		return ctx.Status(http.StatusBadRequest).JSON(dto.ErrorResponse{Error: "INVALID_REQUEST", Message: "invalid request body"})
+	}
+
+	workflow, err := c.workflowService.CreateVersion(ctx.Context(), tenantID, userID, workflowID, req)
+	if err != nil {
+		if errors.Is(err, workflowservice.ErrInvalidUpdateWorkflowRequest) {
+			return ctx.Status(http.StatusBadRequest).JSON(dto.ErrorResponse{Error: "INVALID_REQUEST", Message: err.Error()})
+		}
+		if errors.Is(err, workflowservice.ErrInvalidWorkflowDefinition) {
+			return ctx.Status(http.StatusBadRequest).JSON(dto.ErrorResponse{Error: "INVALID_DEFINITION", Message: err.Error()})
+		}
+		if errors.Is(err, workflowservice.ErrWorkflowNotFound) {
+			return ctx.Status(http.StatusNotFound).JSON(dto.ErrorResponse{Error: "WORKFLOW_NOT_FOUND", Message: err.Error()})
+		}
+		if errors.Is(err, workflowservice.ErrVersionNotFound) {
+			return ctx.Status(http.StatusNotFound).JSON(dto.ErrorResponse{Error: "VERSION_NOT_FOUND", Message: err.Error()})
+		}
+		return ctx.Status(http.StatusInternalServerError).JSON(dto.ErrorResponse{Error: "VERSION_CREATE_FAILED", Message: "failed to create workflow version"})
+	}
+
+	return ctx.Status(http.StatusCreated).JSON(workflow)
+}
+
+func (c *Controller) ActivateVersion(ctx *fiber.Ctx) error {
+	tenantID, userID, err := getAuthContextIDs(ctx)
+	if err != nil {
+		return ctx.Status(http.StatusUnauthorized).JSON(dto.ErrorResponse{Error: "UNAUTHORIZED", Message: "unauthorized"})
+	}
+
+	workflowID, err := uuid.Parse(ctx.Params("id"))
+	if err != nil {
+		return ctx.Status(http.StatusBadRequest).JSON(dto.ErrorResponse{Error: "INVALID_REQUEST", Message: "invalid workflow id"})
+	}
+
+	version, err := strconv.Atoi(ctx.Params("version"))
+	if err != nil || version < 1 {
+		return ctx.Status(http.StatusBadRequest).JSON(dto.ErrorResponse{Error: "INVALID_REQUEST", Message: "invalid version number"})
+	}
+
+	workflow, err := c.workflowService.ActivateVersion(ctx.Context(), tenantID, userID, workflowID, version)
+	if err != nil {
+		if errors.Is(err, workflowservice.ErrWorkflowNotFound) {
+			return ctx.Status(http.StatusNotFound).JSON(dto.ErrorResponse{Error: "WORKFLOW_NOT_FOUND", Message: err.Error()})
+		}
+		if errors.Is(err, workflowservice.ErrVersionNotFound) {
+			return ctx.Status(http.StatusNotFound).JSON(dto.ErrorResponse{Error: "VERSION_NOT_FOUND", Message: err.Error()})
+		}
+		return ctx.Status(http.StatusInternalServerError).JSON(dto.ErrorResponse{Error: "ACTIVATE_VERSION_FAILED", Message: "failed to activate workflow version"})
 	}
 
 	return ctx.Status(http.StatusOK).JSON(workflow)

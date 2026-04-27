@@ -12,6 +12,7 @@ import (
 	userrepo "flowforge-automation-backend/pkg/repository/user"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgconn"
 	"golang.org/x/crypto/bcrypt"
 )
 
@@ -22,6 +23,19 @@ var (
 	ErrInvalidCreateRequest = errors.New("invalid create request")
 	ErrEmailAlreadyExists   = errors.New("email already exists")
 )
+
+func isUniqueViolation(err error) bool {
+	if err == nil {
+		return false
+	}
+
+	var pgErr *pgconn.PgError
+	if errors.As(err, &pgErr) {
+		return pgErr.Code == "23505"
+	}
+
+	return strings.Contains(strings.ToLower(err.Error()), "duplicate")
+}
 
 type service struct {
 	repo userrepo.Repository
@@ -47,7 +61,7 @@ func (s *service) Create(ctx context.Context, tenantID uuid.UUID, req *dto.Creat
 		return nil, ErrInvalidRole
 	}
 
-	existing, err := s.repo.GetByEmailAndTenant(ctx, email, tenantID)
+	existing, err := s.repo.GetByEmail(ctx, email)
 	if err != nil {
 		return nil, err
 	}
@@ -70,6 +84,9 @@ func (s *service) Create(ctx context.Context, tenantID uuid.UUID, req *dto.Creat
 	}
 
 	if err := s.repo.Create(ctx, user); err != nil {
+		if isUniqueViolation(err) {
+			return nil, ErrEmailAlreadyExists
+		}
 		return nil, fmt.Errorf("failed to create user: %w", err)
 	}
 

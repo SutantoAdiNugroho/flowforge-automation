@@ -4,18 +4,17 @@ import "github.com/google/uuid"
 
 // LoginRequest represents login request payload
 type LoginRequest struct {
-	TenantSlug string `json:"tenant_slug" binding:"required,min=3"`
 	Email    string `json:"email" binding:"required,email"`
 	Password string `json:"password" binding:"required,min=6"`
 }
 
 // LoginResponse represents login response
 type LoginResponse struct {
-	Token     string `json:"token"`
-	ExpiresAt int64  `json:"expires_at"`
+	Token     string    `json:"token"`
+	ExpiresAt int64     `json:"expires_at"`
 	UserID    uuid.UUID `json:"user_id"`
-	Email     string `json:"email"`
-	Role      string `json:"role"`
+	Email     string    `json:"email"`
+	Role      string    `json:"role"`
 }
 
 // RegisterRequest represents register request payload
@@ -28,12 +27,12 @@ type RegisterRequest struct {
 
 // RegisterResponse represents register response
 type RegisterResponse struct {
-	Token     string `json:"token"`
-	ExpiresAt int64  `json:"expires_at"`
+	Token     string    `json:"token"`
+	ExpiresAt int64     `json:"expires_at"`
 	UserID    uuid.UUID `json:"user_id"`
 	TenantID  uuid.UUID `json:"tenant_id"`
-	Email     string `json:"email"`
-	Role      string `json:"role"`
+	Email     string    `json:"email"`
+	Role      string    `json:"role"`
 }
 
 // ErrorResponse represents error response

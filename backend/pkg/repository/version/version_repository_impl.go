@@ -5,6 +5,7 @@ import (
 	"errors"
 
 	"flowforge-automation-backend/pkg/model/domain"
+
 	"github.com/google/uuid"
 	"gorm.io/gorm"
 )
@@ -35,6 +36,21 @@ func (r *repository) ListByWorkflow(ctx context.Context, workflowID uuid.UUID, l
 func (r *repository) GetByWorkflowAndVersion(ctx context.Context, workflowID uuid.UUID, ver int) (*domain.WorkflowVersion, error) {
 	var v domain.WorkflowVersion
 	err := r.db.WithContext(ctx).Where("workflow_id = ? AND version = ?", workflowID, ver).First(&v).Error
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, nil
+		}
+		return nil, err
+	}
+	return &v, nil
+}
+
+func (r *repository) GetLatestByWorkflow(ctx context.Context, workflowID uuid.UUID) (*domain.WorkflowVersion, error) {
+	var v domain.WorkflowVersion
+	err := r.db.WithContext(ctx).
+		Where("workflow_id = ?", workflowID).
+		Order("version DESC").
+		First(&v).Error
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, nil

@@ -5,6 +5,7 @@ import (
 	"errors"
 
 	"flowforge-automation-backend/pkg/model/domain"
+
 	"github.com/google/uuid"
 	"gorm.io/gorm"
 )
@@ -17,9 +18,9 @@ func NewAuthRepository(db *gorm.DB) Repository {
 	return &repository{db: db}
 }
 
-func (r *repository) GetUserByEmailAndTenant(ctx context.Context, email string, tenantID uuid.UUID) (*domain.User, error) {
+func (r *repository) GetUserByEmail(ctx context.Context, email string) (*domain.User, error) {
 	var user domain.User
-	if err := r.db.WithContext(ctx).Where("email = ? AND tenant_id = ?", email, tenantID).First(&user).Error; err != nil {
+	if err := r.db.WithContext(ctx).Where("email = ?", email).First(&user).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, nil
 		}
@@ -37,6 +38,14 @@ func (r *repository) GetUserByIDAndTenant(ctx context.Context, userID, tenantID 
 		return nil, err
 	}
 	return &user, nil
+}
+
+func (r *repository) CheckUserExists(ctx context.Context, userID, tenantID uuid.UUID) (bool, error) {
+	var count int64
+	err := r.db.WithContext(ctx).Model(&domain.User{}).
+		Where("id = ? AND tenant_id = ?", userID, tenantID).
+		Count(&count).Error
+	return count > 0, err
 }
 
 func (r *repository) CreateTenant(ctx context.Context, tenant *domain.Tenant) error {

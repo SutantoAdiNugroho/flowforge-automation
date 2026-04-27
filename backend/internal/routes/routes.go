@@ -26,7 +26,7 @@ type Controllers struct {
 	Webhook  *webhookcontroller.Controller
 }
 
-func Setup(ctrl Controllers, jwtManager *auth.JWTManager, wsHub *websocket.Hub) *fiber.App {
+func Setup(ctrl Controllers, jwtManager *auth.JWTManager, wsHub *websocket.Hub, authRepo auth.UserLookup) *fiber.App {
 	app := fiber.New(fiber.Config{
 		BodyLimit: 10 * 1024 * 1024,
 	})
@@ -51,7 +51,7 @@ func Setup(ctrl Controllers, jwtManager *auth.JWTManager, wsHub *websocket.Hub) 
 
 	// protected
 	protected := api.Group("/")
-	protected.Use(auth.Middleware(jwtManager))
+	protected.Use(auth.Middleware(jwtManager, authRepo))
 
 	// sse stream for real-time run monitoring
 	protected.Get("/events", websocket.SSEHandler(wsHub))
@@ -69,11 +69,13 @@ func Setup(ctrl Controllers, jwtManager *auth.JWTManager, wsHub *websocket.Hub) 
 	viewerPlus.Get("/workflows/:id/versions", ctrl.Workflow.ListVersions)
 	viewerPlus.Get("/workflows/:id/runs", ctrl.Run.ListRunsByWorkflow)
 
-	// workflows - write (editor+)
+	// workflows - write
 	editorPlus := protected.Group("/")
 	editorPlus.Use(auth.RoleBasedMiddleware("admin", "editor"))
 	editorPlus.Post("/workflows", ctrl.Workflow.Create)
 	editorPlus.Put("/workflows/:id", ctrl.Workflow.Update)
+	editorPlus.Post("/workflows/:id/versions", ctrl.Workflow.CreateVersion)
+	editorPlus.Put("/workflows/:id/versions/:version/activate", ctrl.Workflow.ActivateVersion)
 	editorPlus.Post("/workflows/:id/runs", ctrl.Run.TriggerRun)
 	editorPlus.Post("/runs/:runId/cancel", ctrl.Run.CancelRun)
 
@@ -92,7 +94,7 @@ func Setup(ctrl Controllers, jwtManager *auth.JWTManager, wsHub *websocket.Hub) 
 
 	// tenants - super admin only
 	superAdmin := api.Group("/admin")
-	superAdmin.Use(auth.Middleware(jwtManager))
+	superAdmin.Use(auth.Middleware(jwtManager, authRepo))
 	superAdmin.Use(auth.RoleBasedMiddleware("super-admin"))
 	superAdmin.Get("/tenants", ctrl.Tenant.List)
 	superAdmin.Post("/tenants", ctrl.Tenant.Create)
