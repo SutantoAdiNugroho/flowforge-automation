@@ -3,6 +3,7 @@
 import { useEffect, useState, use } from "react";
 import { fetchApi } from "@/lib/api";
 import Link from "next/link";
+import { FiCheck, FiX, FiClock, FiLoader } from "react-icons/fi";
 import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
@@ -107,8 +108,8 @@ export default function RunDetailPage({ params }: { params: Promise<{ id: string
                 <TableHead>Step ID</TableHead>
                 <TableHead>Step Name</TableHead>
                 <TableHead>Status</TableHead>
+                <TableHead>Duration</TableHead>
                 <TableHead>Error</TableHead>
-                <TableHead>Updated At</TableHead>
               </TableRow>
             </UITableHeader>
             <TableBody>
@@ -117,18 +118,25 @@ export default function RunDetailPage({ params }: { params: Promise<{ id: string
                   <TableCell className="font-mono text-sm text-gray-900">{s.step_id}</TableCell>
                   <TableCell className="text-gray-700">{s.step_name}</TableCell>
                   <TableCell>
-                    <Badge variant={
-                      s.status === 'success' ? 'success' : 
-                      s.status === 'failed' ? 'danger' : 
-                      s.status === 'running' ? 'warning' : 'default'
-                    }>
-                      {s.status}
-                    </Badge>
+                    <div className="flex items-center gap-2">
+                      {s.status === 'success' && <FiCheck className="w-4 h-4 text-green-600" />}
+                      {s.status === 'failed' && <FiX className="w-4 h-4 text-red-600" />}
+                      {s.status === 'running' && <FiLoader className="w-4 h-4 text-blue-600 animate-spin" />}
+                      {s.status === 'pending' && <FiClock className="w-4 h-4 text-gray-400" />}
+                      {s.status === 'skipped' && <FiX className="w-4 h-4 text-gray-400" />}
+                      <Badge variant={
+                        s.status === 'success' ? 'success' : 
+                        s.status === 'failed' ? 'danger' : 
+                        s.status === 'running' ? 'warning' : 'default'
+                      }>
+                        {s.status}
+                      </Badge>
+                    </div>
+                  </TableCell>
+                  <TableCell className="text-gray-600 text-sm">
+                    {s.duration_ms ? `${s.duration_ms}ms` : '-'}
                   </TableCell>
                   <TableCell className="text-red-600 text-sm">{s.error || "-"}</TableCell>
-                  <TableCell className="text-gray-500 text-sm">
-                    {new Date(s.updated_at).toLocaleTimeString()}
-                  </TableCell>
                 </TableRow>
               ))}
               {steps.length === 0 && (

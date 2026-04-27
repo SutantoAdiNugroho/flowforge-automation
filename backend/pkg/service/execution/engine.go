@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"flowforge-automation-backend/pkg/model/domain"
+
 	"github.com/google/uuid"
 )
 
@@ -144,12 +145,13 @@ func (e *Engine) executeStep(
 	defer cancel()
 
 	stepExec := e.createStepRecord(runID, step)
-	_ = e.persister.CreateStepExecution(ctx, stepExec)
+	if err := e.persister.CreateStepExecution(ctx, stepExec); err != nil {
+		fmt.Printf("failed to create step execution: %v\n", err)
+		return fmt.Errorf("failed to create step: %w", err)
+	}
 	e.broadcastStepUpdate(runID, step, "running", "", nil, 0)
 
-	// collect dependency outputs
 	inputData := e.collectInputs(step, outputs)
-
 	runner := getRunner(step.Type)
 
 	result, retries, err := e.retry.executeWithRetry(stepCtx, step.RetryPolicy, func(c context.Context) (map[string]interface{}, error) {
@@ -164,9 +166,11 @@ func (e *Engine) executeStep(
 
 	if err != nil {
 		stepExec.Status = "failed"
-		stepExec.Error = err.Error()
-		_ = e.persister.UpdateStepExecution(ctx, stepExec)
-		e.broadcastStepUpdate(runID, step, "failed", err.Error(), nil, retries)
+		stepExec.Error = sanitizeError(err.Error())
+		if updateErr := e.persister.UpdateStepExecution(ctx, stepExec); updateErr != nil {
+			fmt.Printf("failed to update step execution status to failed: %v\n", updateErr)
+		}
+		e.broadcastStepUpdate(runID, step, "failed", stepExec.Error, nil, retries)
 		return err
 	}
 
@@ -177,11 +181,13 @@ func (e *Engine) executeStep(
 		json.Unmarshal(outputJSON, &outputMap)
 		stepExec.Output = outputMap
 	}
-	_ = e.persister.UpdateStepExecution(ctx, stepExec)
+	if updateErr := e.persister.UpdateStepExecution(ctx, stepExec); updateErr != nil {
+		fmt.Printf("failed to update step execution status to success: %v\n", updateErr)
+		return fmt.Errorf("failed to update step success: %w", updateErr)
+	}
 
 	outputs.Store(step.ID, result)
 
-	// for conditional steps, check if downstream should be skipped
 	if step.Type == "conditional" || step.Type == "condition" {
 		if result != nil {
 			if condResult, ok := result["condition_result"].(bool); ok && !condResult {
@@ -249,8 +255,15 @@ func (e *Engine) recordStep(ctx context.Context, runID uuid.UUID, step domain.DA
 }
 
 func (e *Engine) failRun(ctx context.Context, runID uuid.UUID, errMsg string) {
-	_ = e.persister.UpdateStatus(ctx, runID, "failed", errMsg)
-	e.broadcastRunUpdate(runID, "failed", errMsg)
+	_ = e.persister.UpdateStatus(ctx, runID, "failed", sanitizeError(errMsg))
+	e.broadcastRunUpdate(runID, "failed", sanitizeError(errMsg))
+}
+
+func sanitizeError(errMsg string) string {
+	if len(errMsg) > 1000 {
+		return errMsg[:1000]
+	}
+	return errMsg
 }
 
 func (e *Engine) parseDefinition(def domain.JSONB) (*domain.DAGDefinition, error) {
@@ -284,5 +297,3 @@ func (e *Engine) broadcastRunUpdate(runID uuid.UUID, status, errMsg string) {
 		Timestamp: time.Now(),
 	})
 }
-
-
