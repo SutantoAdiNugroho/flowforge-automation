@@ -7,7 +7,9 @@ import (
 	authcontroller "flowforge-automation-backend/pkg/controller/auth"
 	healthcontroller "flowforge-automation-backend/pkg/controller/health"
 	runcontroller "flowforge-automation-backend/pkg/controller/run"
+	tenantcontroller "flowforge-automation-backend/pkg/controller/tenant"
 	usercontroller "flowforge-automation-backend/pkg/controller/user"
+	webhookcontroller "flowforge-automation-backend/pkg/controller/webhook"
 	workflowcontroller "flowforge-automation-backend/pkg/controller/workflow"
 
 	"github.com/gofiber/fiber/v2"
@@ -20,6 +22,8 @@ type Controllers struct {
 	Workflow *workflowcontroller.Controller
 	Run      *runcontroller.Controller
 	User     *usercontroller.Controller
+	Tenant   *tenantcontroller.Controller
+	Webhook  *webhookcontroller.Controller
 }
 
 func Setup(ctrl Controllers, jwtManager *auth.JWTManager, wsHub *websocket.Hub) *fiber.App {
@@ -43,6 +47,7 @@ func Setup(ctrl Controllers, jwtManager *auth.JWTManager, wsHub *websocket.Hub) 
 	api.Get("/health", ctrl.Health.GetHealth)
 	api.Post("/auth/register", ctrl.Auth.Register)
 	api.Post("/auth/login", ctrl.Auth.Login)
+	api.Post("/webhooks/:workflowId", ctrl.Webhook.HandleWebhook)
 
 	// protected
 	protected := api.Group("/")
@@ -84,6 +89,16 @@ func Setup(ctrl Controllers, jwtManager *auth.JWTManager, wsHub *websocket.Hub) 
 	adminOnly.Get("/users/:id", ctrl.User.GetByID)
 	adminOnly.Put("/users/:id", ctrl.User.Update)
 	adminOnly.Delete("/users/:id", ctrl.User.Delete)
+
+	// tenants - super admin only
+	superAdmin := api.Group("/admin")
+	superAdmin.Use(auth.Middleware(jwtManager))
+	superAdmin.Use(auth.RoleBasedMiddleware("super-admin"))
+	superAdmin.Get("/tenants", ctrl.Tenant.List)
+	superAdmin.Post("/tenants", ctrl.Tenant.Create)
+	superAdmin.Get("/tenants/:id", ctrl.Tenant.GetByID)
+	superAdmin.Put("/tenants/:id", ctrl.Tenant.Update)
+	superAdmin.Delete("/tenants/:id", ctrl.Tenant.Delete)
 
 	return app
 }
