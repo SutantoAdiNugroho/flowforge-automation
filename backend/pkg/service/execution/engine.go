@@ -13,14 +13,15 @@ import (
 )
 
 type StepUpdateEvent struct {
-	RunID     uuid.UUID              `json:"run_id"`
-	StepID    string                 `json:"step_id"`
-	StepName  string                 `json:"step_name"`
-	Status    string                 `json:"status"`
-	Error     string                 `json:"error,omitempty"`
-	Output    map[string]interface{} `json:"output,omitempty"`
-	Retry     int                    `json:"retry_count"`
-	Timestamp time.Time              `json:"timestamp"`
+	RunID      uuid.UUID              `json:"run_id"`
+	StepID     string                 `json:"step_id"`
+	StepName   string                 `json:"step_name"`
+	Status     string                 `json:"status"`
+	Error      string                 `json:"error,omitempty"`
+	Output     map[string]interface{} `json:"output,omitempty"`
+	Retry      int                    `json:"retry_count"`
+	DurationMs int                    `json:"duration_ms,omitempty"`
+	Timestamp  time.Time              `json:"timestamp"`
 }
 
 type RunUpdateEvent struct {
@@ -149,7 +150,7 @@ func (e *Engine) executeStep(
 		fmt.Printf("failed to create step execution: %v\n", err)
 		return fmt.Errorf("failed to create step: %w", err)
 	}
-	e.broadcastStepUpdate(runID, step, "running", "", nil, 0)
+	e.broadcastStepUpdate(runID, step, "running", "", nil, 0, 0)
 
 	inputData := e.collectInputs(step, outputs)
 	runner := getRunner(step.Type)
@@ -170,7 +171,7 @@ func (e *Engine) executeStep(
 		if updateErr := e.persister.UpdateStepExecution(ctx, stepExec); updateErr != nil {
 			fmt.Printf("failed to update step execution status to failed: %v\n", updateErr)
 		}
-		e.broadcastStepUpdate(runID, step, "failed", stepExec.Error, nil, retries)
+		e.broadcastStepUpdate(runID, step, "failed", stepExec.Error, nil, retries, dur)
 		return err
 	}
 
@@ -196,7 +197,7 @@ func (e *Engine) executeStep(
 		}
 	}
 
-	e.broadcastStepUpdate(runID, step, "success", "", result, retries)
+	e.broadcastStepUpdate(runID, step, "success", "", result, retries, dur)
 	return nil
 }
 
@@ -251,7 +252,7 @@ func (e *Engine) recordStep(ctx context.Context, runID uuid.UUID, step domain.DA
 	dur := 0
 	se.DurationMs = &dur
 	_ = e.persister.CreateStepExecution(ctx, se)
-	e.broadcastStepUpdate(runID, step, status, errMsg, output, retries)
+	e.broadcastStepUpdate(runID, step, status, errMsg, output, retries, dur)
 }
 
 func (e *Engine) failRun(ctx context.Context, runID uuid.UUID, errMsg string) {
@@ -270,19 +271,20 @@ func (e *Engine) parseDefinition(def domain.JSONB) (*domain.DAGDefinition, error
 	return domain.ParseDAGDefinition(def)
 }
 
-func (e *Engine) broadcastStepUpdate(runID uuid.UUID, step domain.DAGStep, status, errMsg string, output map[string]interface{}, retries int) {
+func (e *Engine) broadcastStepUpdate(runID uuid.UUID, step domain.DAGStep, status, errMsg string, output map[string]interface{}, retries int, duration int) {
 	if e.broadcaster == nil {
 		return
 	}
 	e.broadcaster.BroadcastStepUpdate(StepUpdateEvent{
-		RunID:     runID,
-		StepID:    step.ID,
-		StepName:  step.Name,
-		Status:    status,
-		Error:     errMsg,
-		Output:    output,
-		Retry:     retries,
-		Timestamp: time.Now(),
+		RunID:      runID,
+		StepID:     step.ID,
+		StepName:   step.Name,
+		Status:     status,
+		Error:      errMsg,
+		Output:     output,
+		Retry:      retries,
+		DurationMs: duration,
+		Timestamp:  time.Now(),
 	})
 }
 

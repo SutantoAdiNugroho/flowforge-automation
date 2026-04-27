@@ -18,6 +18,7 @@ type service struct {
 	repo         workflowrepository.Repository
 	versionRepo  versionrepo.Repository
 	dagValidator *execution.DAGValidator
+	scheduler    interface{ SyncWorkflows() error }
 }
 
 func NewWorkflowService(repo workflowrepository.Repository, versionRepo versionrepo.Repository) Service {
@@ -96,6 +97,10 @@ func (s *service) Create(ctx context.Context, tenantID, userID uuid.UUID, req *d
 	// save initial version
 	s.saveVersion(ctx, workflow.ID, 1, req.Definition, userID)
 
+	if s.scheduler != nil {
+		_ = s.scheduler.SyncWorkflows()
+	}
+
 	return workflow, nil
 }
 
@@ -171,6 +176,10 @@ func (s *service) Update(ctx context.Context, tenantID, userID, workflowID uuid.
 	// persist version snapshot
 	s.saveVersion(ctx, workflowID, newVersion, req.Definition, userID)
 
+	if s.scheduler != nil {
+		_ = s.scheduler.SyncWorkflows()
+	}
+
 	return workflow, nil
 }
 
@@ -183,7 +192,15 @@ func (s *service) Delete(ctx context.Context, tenantID, workflowID uuid.UUID) er
 		return ErrWorkflowNotFound
 	}
 
-	return s.repo.Delete(ctx, workflowID, tenantID)
+	if err := s.repo.Delete(ctx, workflowID, tenantID); err != nil {
+		return err
+	}
+
+	if s.scheduler != nil {
+		_ = s.scheduler.SyncWorkflows()
+	}
+
+	return nil
 }
 
 func (s *service) ListVersions(ctx context.Context, tenantID, workflowID uuid.UUID, limit, offset int) ([]domain.WorkflowVersion, int64, error) {
@@ -228,6 +245,10 @@ func (s *service) Rollback(ctx context.Context, tenantID, userID, workflowID uui
 
 	s.saveVersion(ctx, workflowID, newVersion, ver.Definition, userID)
 
+	if s.scheduler != nil {
+		_ = s.scheduler.SyncWorkflows()
+	}
+
 	return existing, nil
 }
 
@@ -240,6 +261,10 @@ func (s *service) saveVersion(ctx context.Context, workflowID uuid.UUID, version
 		CreatedByID: userID,
 	}
 	_ = s.versionRepo.Create(ctx, v)
+}
+
+func (s *service) SetScheduler(scheduler interface{ SyncWorkflows() error }) {
+	s.scheduler = scheduler
 }
 
 var ErrVersionNotFound = errors.New("version not found")

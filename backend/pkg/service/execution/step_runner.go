@@ -3,6 +3,7 @@ package execution
 import (
 	"bytes"
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -10,6 +11,7 @@ import (
 	"os/exec"
 	"strings"
 	"time"
+	"unicode/utf8"
 
 	"flowforge-automation-backend/pkg/model/domain"
 )
@@ -72,9 +74,14 @@ func (r *httpRunner) Run(ctx context.Context, step domain.DAGStep, inputs map[st
 		return nil, fmt.Errorf("http %d: %s", resp.StatusCode, string(respBody))
 	}
 
+	bodyStr := string(respBody)
+	if strings.Contains(bodyStr, "\x00") || !utf8.ValidString(bodyStr) {
+		bodyStr = base64.StdEncoding.EncodeToString(respBody)
+	}
+
 	output := map[string]interface{}{
 		"status_code": resp.StatusCode,
-		"body":        string(respBody),
+		"body":        bodyStr,
 	}
 
 	var parsed interface{}
@@ -112,9 +119,19 @@ func (r *scriptRunner) Run(ctx context.Context, step domain.DAGStep, inputs map[
 
 	err := cmd.Run()
 
+	stdoutStr := stdout.String()
+	if strings.Contains(stdoutStr, "\x00") || !utf8.ValidString(stdoutStr) {
+		stdoutStr = base64.StdEncoding.EncodeToString(stdout.Bytes())
+	}
+
+	stderrStr := stderr.String()
+	if strings.Contains(stderrStr, "\x00") || !utf8.ValidString(stderrStr) {
+		stderrStr = base64.StdEncoding.EncodeToString(stderr.Bytes())
+	}
+
 	output := map[string]interface{}{
-		"stdout":    stdout.String(),
-		"stderr":    stderr.String(),
+		"stdout":    stdoutStr,
+		"stderr":    stderrStr,
 		"exit_code": cmd.ProcessState.ExitCode(),
 	}
 

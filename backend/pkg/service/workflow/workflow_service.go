@@ -16,4 +16,5 @@ type Service interface {
 	Delete(ctx context.Context, tenantID, workflowID uuid.UUID) error
 	ListVersions(ctx context.Context, tenantID, workflowID uuid.UUID, limit, offset int) ([]domain.WorkflowVersion, int64, error)
 	Rollback(ctx context.Context, tenantID, userID, workflowID uuid.UUID, version int) (*domain.Workflow, error)
+	SetScheduler(scheduler interface{ SyncWorkflows() error })
 }

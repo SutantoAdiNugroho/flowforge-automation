@@ -16,6 +16,7 @@ var (
 	ErrWorkflowNotFound = errors.New("workflow not found")
 	ErrRunNotFound      = errors.New("run not found")
 	ErrRunNotCancellable = errors.New("run is not in a cancellable state")
+	ErrWorkflowInactive  = errors.New("workflow is inactive")
 )
 
 type service struct {
@@ -37,8 +38,13 @@ func (s *service) TriggerRun(ctx context.Context, tenantID, userID, workflowID u
 	if err != nil {
 		return nil, err
 	}
-	if wf == nil {
-		return nil, ErrWorkflowNotFound
+	if !wf.IsActive {
+		return nil, ErrWorkflowInactive
+	}
+
+	triggeredBy := "manual"
+	if req != nil && req.TriggeredBy != "" {
+		triggeredBy = req.TriggeredBy
 	}
 
 	run := &domain.WorkflowRun{
@@ -46,7 +52,7 @@ func (s *service) TriggerRun(ctx context.Context, tenantID, userID, workflowID u
 		WorkflowID:  workflowID,
 		TenantID:    tenantID,
 		Status:      "pending",
-		TriggeredBy: "manual",
+		TriggeredBy: triggeredBy,
 	}
 
 	if req != nil && req.Inputs != nil {

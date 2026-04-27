@@ -3,6 +3,7 @@
 import { useEffect, useState, use } from "react";
 import { fetchApi } from "@/lib/api";
 import { useAuth } from "@/contexts/AuthContext";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
 
 import { Button } from "@/components/ui/Button";
@@ -14,6 +15,7 @@ import { useSSE } from "@/hooks/useSSE";
 export default function WorkflowDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const resolvedParams = use(params);
   const id = resolvedParams.id;
+  const router = useRouter();
   const [workflow, setWorkflow] = useState<any>(null);
   const [runs, setRuns] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -57,11 +59,32 @@ export default function WorkflowDetailPage({ params }: { params: Promise<{ id: s
 
   const handleTrigger = async () => {
     try {
-      await fetchApi(`/workflows/${id}/runs`, { method: "POST", body: "{}" });
-      alert("Run triggered");
-      fetchData();
+      const result = await fetchApi(`/workflows/${id}/runs`, { method: "POST", body: "{}" });
+      alert("Workflow berhasil dijalankan!");
+      router.push(`/dashboard/runs/${result.id}`);
     } catch (err: any) {
-      alert("Failed to trigger: " + err.message);
+      alert("Gagal menjalankan workflow: " + err.message);
+    }
+  };
+
+  const handleToggleStatus = async () => {
+    const newStatus = !workflow.is_active;
+    try {
+      await fetchApi(`/workflows/${id}`, {
+        method: "PUT",
+        body: JSON.stringify({
+          ...workflow,
+          is_active: newStatus,
+          name: workflow.name,
+          trigger_type: workflow.trigger_type,
+          definition: workflow.definition,
+          cron_expression: workflow.cron_expression
+        }),
+      });
+      setWorkflow({ ...workflow, is_active: newStatus });
+      router.refresh();
+    } catch (err: any) {
+      alert("Gagal mengubah status: " + err.message);
     }
   };
 
@@ -88,9 +111,22 @@ export default function WorkflowDetailPage({ params }: { params: Promise<{ id: s
             </div>
             <div className="flex space-x-2">
               {canEdit && (
-                <Button variant="primary" className="bg-green-600 hover:bg-green-700" onClick={handleTrigger}>
-                  Trigger Run
-                </Button>
+                <>
+                  <Button
+                    variant={workflow.is_active ? "danger" : "success"}
+                    onClick={handleToggleStatus}
+                  >
+                    {workflow.is_active ? "Deactivate" : "Activate"}
+                  </Button>
+                  <Button 
+                    variant="primary" 
+                    className="bg-green-600 hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed" 
+                    onClick={handleTrigger}
+                    disabled={!workflow.is_active}
+                  >
+                    Run Workflow
+                  </Button>
+                </>
               )}
               <Link href="/dashboard">
                 <Button variant="secondary">Back</Button>
@@ -130,9 +166,9 @@ export default function WorkflowDetailPage({ params }: { params: Promise<{ id: s
                   </TableCell>
                   <TableCell>
                     <Badge variant={
-                      r.status === 'success' ? 'success' : 
-                      r.status === 'failed' ? 'danger' : 
-                      'default'
+                      r.status === 'success' ? 'success' :
+                        r.status === 'failed' ? 'danger' :
+                          'default'
                     }>
                       {r.status}
                     </Badge>
