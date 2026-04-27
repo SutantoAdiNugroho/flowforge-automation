@@ -10,17 +10,21 @@ import (
 	authcontroller "flowforge-automation-backend/pkg/controller/auth"
 	healthcontroller "flowforge-automation-backend/pkg/controller/health"
 	runcontroller "flowforge-automation-backend/pkg/controller/run"
+	usercontroller "flowforge-automation-backend/pkg/controller/user"
 	workflowcontroller "flowforge-automation-backend/pkg/controller/workflow"
 	authrepository "flowforge-automation-backend/pkg/repository/auth"
 	healthrepository "flowforge-automation-backend/pkg/repository/health"
 	runrepository "flowforge-automation-backend/pkg/repository/run"
+	userrepository "flowforge-automation-backend/pkg/repository/user"
 	versionrepository "flowforge-automation-backend/pkg/repository/version"
 	workflowrepository "flowforge-automation-backend/pkg/repository/workflow"
 	authservice "flowforge-automation-backend/pkg/service/auth"
 	"flowforge-automation-backend/pkg/service/execution"
 	healthservice "flowforge-automation-backend/pkg/service/health"
 	runservice "flowforge-automation-backend/pkg/service/run"
+	userservice "flowforge-automation-backend/pkg/service/user"
 	workflowservice "flowforge-automation-backend/pkg/service/workflow"
+
 	"gorm.io/gorm"
 )
 
@@ -31,6 +35,7 @@ type Container struct {
 	AuthController     *authcontroller.Controller
 	WorkflowController *workflowcontroller.Controller
 	RunController      *runcontroller.Controller
+	UserController     *usercontroller.Controller
 	AuthService        authservice.Service
 	JWTManager         *auth.JWTManager
 	WSHub              *websocket.Hub
@@ -66,6 +71,7 @@ func NewContainer(cfg config.Config) (*Container, error) {
 	workflowRepo := workflowrepository.NewWorkflowRepository(gormDB)
 	versionRepo := versionrepository.NewVersionRepository(gormDB)
 	runRepo := runrepository.NewRunRepository(gormDB)
+	userRepo := userrepository.NewUserRepository(gormDB)
 
 	// workflow service (now with version repo)
 	workflowSvc := workflowservice.NewWorkflowService(workflowRepo, versionRepo)
@@ -78,6 +84,10 @@ func NewContainer(cfg config.Config) (*Container, error) {
 	runSvc := runservice.NewRunService(runRepo, workflowRepo, engine)
 	runCtrl := runcontroller.NewRunController(runSvc)
 
+	// user service
+	userSvc := userservice.NewUserService(userRepo)
+	userCtrl := usercontroller.NewUserController(userSvc)
+
 	return &Container{
 		DB:                 database,
 		GormDB:             gormDB,
@@ -85,6 +95,7 @@ func NewContainer(cfg config.Config) (*Container, error) {
 		AuthController:     authCtrl,
 		WorkflowController: workflowCtrl,
 		RunController:      runCtrl,
+		UserController:     userCtrl,
 		AuthService:        authSvc,
 		JWTManager:         jwtMgr,
 		WSHub:              wsHub,

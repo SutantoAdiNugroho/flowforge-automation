@@ -34,6 +34,7 @@ func main() {
 		Auth:     container.AuthController,
 		Workflow: container.WorkflowController,
 		Run:      container.RunController,
+		User:     container.UserController,
 	}
 
 	app := routes.Setup(ctrl, container.JWTManager, container.WSHub)
